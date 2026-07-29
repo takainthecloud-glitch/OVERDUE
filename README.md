@@ -1,6 +1,6 @@
 # OVERDUE — Zero Trust Debt Ledger
 
-**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. It ships a printable dunning notice, a full provenance chapter listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely offline in the browser. The UI is in Japanese.
+**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. Drivers a team admits it cannot yet count are disclosed as **off-balance** items rather than silently treated as zero, and post-quantum exposure is reported as two non-monetary lenses — harvest-now-decrypt-later time margin (Mosca's X+Y>Z) and the share of encrypted egress that goes uninspected. It ships a printable dunning notice, a full provenance chapter listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely in the browser — no data leaves the machine (fonts are loaded from Google Fonts). The UI is in Japanese.
 
 ---
 
@@ -32,11 +32,11 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 | 章 | 内容 |
 |---|---|
 | **00 Balance · 残高照会** | 通帳型の未納残高、勘定元帳（借方 / 貸方 / 残高）、STALLED の指摘 |
-| **01 Ledger · 内訳台帳** | 負債の 4 分類 — 未検証の東西通信経路（UNKNOWN / VISIBLE / ENFORCED の状態機械）、期限なき例外アクセス、所有者不明資産への広域権限、根拠未記録の継続権限。さらに新規借入勘定（クラウド・SaaS 拡張、AI エージェント、M&A・拠点追加、PQC 未棚卸し）を件数で記帳 |
-| **02 Grace · 猶予時間** | 元本は急に膨らまない。減っているのは猶予のほう — 悪用までの時間（TTE）の推移と、パッチ適用中央値・KEV 修復率といった防御側の指標を対比 |
+| **01 Ledger · 内訳台帳** | 負債の 4 分類 — 未検証の東西通信経路（UNKNOWN / VISIBLE / ENFORCED の状態機械）、期限なき例外アクセス、所有者不明資産への広域権限、根拠未記録の継続権限。さらに新規借入勘定（クラウド・SaaS 拡張、AI エージェント、M&A・拠点追加、PQC 未棚卸し）を件数で記帳し、各ドライバーの取得方法を **実測 / 概算 / 棚卸不能** で自己申告。「棚卸不能」はゼロと区別して**簿外債務**として開示。数え方が分からない欄には回収先マップ（どの台帳・どのツールから、どれくらいの工数で数えるか）を併記 |
+| **02 Grace · 猶予時間** | 元本は急に膨らまない。減っているのは猶予のほう — 悪用までの時間（TTE）の推移と、パッチ適用中央値・KEV 修復率といった防御側の指標を対比。**02.4 Quantum Grace** では PQC を件数ではなく 2 レンズ（HNDL = Mosca の X+Y>Z による時間の余白／検査不能な暗号化 egress の比率）で開示 |
 | **03 Notice · 督促状** | 経営層に渡せる督促状を別ウィンドウに発行し、印刷 / PDF 保存 |
 | **04 Intake · 計上・入力** | MAAZ の JSON（成熟度 → 脆弱性係数）、Forg の JSON（組織摩擦）、ヒアリングシート（.xlsx）を取り込んで自社データで再計算。台帳自体の JSON 保存 / 読み込み、架空モデルケースの読み込み |
-| **05 Provenance · 根拠開示** | 恒等式の検算、全定数とその出典（基準日つき）、脅威環境係数のプリセットと上限キャップ、不変条件の一覧、系譜と免責 |
+| **05 Provenance · 根拠開示** | 恒等式の検算、全定数とその出典（基準日つき）、脅威環境係数のプリセットと上限キャップ、不変条件の一覧、「未検証の暗黙の信頼」を 4 つの勘定に分担する対応表、系譜と免責 |
 
 ### 不変条件 — このツールが構造的にできないこと
 
@@ -47,11 +47,13 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 - **INV-D6** 項目別按分の総和 = 集約残高（二重計上なし）
 - **INV-D7** 滞留日数（エージング）は残高を変えない — **利息は採用しない**
 - **INV-N1** 新規借入ドライバーは物量（件数 / 期）のみを記帳する。金額が増える唯一の経路は次回棚卸しでの再計上（実測）であり、将来外挿による積み増しはしない
+- **INV-N2** 「棚卸不能」と申告されたドライバーはゼロと区別し、簿外債務として開示する。金額化はしない（スコープ外と判明している分は MAAZ の SCF 経由で計上額側に反映済みのため、簿外でも金額化すると二重計上になる）。簿外がある間、残高と新規借入合計は**下限値**として表示される
+- **INV-N3** PQC リスクは件数で表さない。HNDL は時間、インフラ検査可能性は比率として 02.4 で開示し、金額残高・侵害確率式には一切接続しない
 - **猶予不算入** 「02 猶予時間」の攻撃速度データは残高に一切入らない。脅威環境が金額に触れる唯一の接続点は上限キャップつきの climate 係数のみ
 
 ### 出典
 
-定数と時系列は公開レポートに基づき、章 05 に基準日つきで開示されます（Verizon DBIR、IBM Cost of a Data Breach、Mandiant M-Trends、Palo Alto Networks Unit 42、Sophos State of Ransomware、CISA KEV を集計する Zero Day Clock ほか）。**デフォルト値は架空のモデル企業**であり、初期表示にはその旨の警告が出ます。実データを取り込むまでは自社の帳簿ではありません。
+定数と時系列は公開レポートに基づき、章 05 に基準日つきで開示されます（Verizon DBIR、IBM Cost of a Data Breach、Mandiant M-Trends、Palo Alto Networks Unit 42、Sophos State of Ransomware、CISA KEV を集計する Zero Day Clock ほか）。PQC の CRQC 想定年（既定 2029）は断定ではなく保守側の想定で、NIST IR 8547 の 2030 年以降非推奨方針と資源見積もりの縮小を根拠に章 02.4 で開示し、利用者が変更できます。**デフォルト値は架空のモデル企業**であり、初期表示にはその旨の警告が出ます。実データを取り込むまでは自社の帳簿ではありません。
 
 ### データの扱い
 
@@ -59,7 +61,7 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 
 ## 使い方
 
-1. `overdue_v1_1_1.html`（または `index.html`）をダウンロードする
+1. `overdue_v1_7_0.html`（または `index.html`）をダウンロードする
 2. ブラウザでファイルを開く
 3. 「04 計上・入力」から自社データを入力または取り込む（何も取り込まない場合は架空モデル企業の帳簿が表示されます）
 
@@ -69,7 +71,7 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 
 | 方法 | 説明 |
 |---|---|
-| **フォーム直接入力** | 基本情報・被害額前提・投資見積もりなどをその場で入力。追加ファイル不要の主導線です |
+| **フォーム直接入力** | 基本情報・被害額前提・TO-BE縮小前提・確率係数をその場で入力。追加ファイル不要の主導線です |
 | **MAAZ の JSON** | 姉妹ツール MAAZ のエクスポートを取り込むと、成熟度から脆弱性係数が実データになります |
 | **Forg の JSON** | 姉妹ツール Forg のエクスポートを取り込むと、組織摩擦係数が実データになり STALLED が按分されます |
 | **保存済み JSON** | 本ツールでエクスポートした台帳を読み戻して続きから作業 |
@@ -91,8 +93,8 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 ## バージョン
 
-- アプリケーション: **v1.1.1**（HTML 内の `const APP_VER` が唯一の版数の出所）
-- 計算エンジン: 同系上位エンジン v4.4.1 の無改変フォーク。恒等式・定数・出典・取込ロジックは同一で、同じ入力に対して同一の残高を返します
+- アプリケーション: **v1.7.0**（HTML 内の `const APP_VER` が唯一の版数の出所）
+- 計算エンジン: 同系上位エンジン v4.4.1 の無改変フォーク（`const ENGINE_VER = 'v4.4.1 engine (verbatim fork)'`）。恒等式・定数・出典・取込ロジックは同一で、同じ入力に対して同一の残高を返します
 - 保存 JSON の識別子: `format: "overdue-v1"` / `engine: "ztd-v4.4.1-fork"`。読み込み側は旧識別子（`endeavor-*` 形式、旧キー `investZscaler`）も受理する後方互換を持ちます
 - 設計システム: Ztelier Edition
 
