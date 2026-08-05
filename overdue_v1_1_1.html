@@ -1486,7 +1486,7 @@ function calc(){
   /* === Blast Radius (v1.1 SCF連動) ===
      Networks柱のSCFに応じて、被害影響範囲の縮小効果を減衰させる。
      SCF=1.0 なら理想値まで縮小、SCF=0.33（部分導入）ならほぼAS-IS近辺。
-     たかさんのMGA思想 IF(flatNet=1, 全社, 5%) の連続値拡張。
+     IF(flatNet=1, 全社, 5%) という離散判定の連続値拡張。
      Networks柱のSCF がマイクロセグメンテーションの実効度を決める。 */
   const networksSCF = (S.maazEffectiveCoverage && S.maazEffectiveCoverage.byPillar &&
                        S.maazEffectiveCoverage.byPillar["Networks"])
@@ -1494,7 +1494,7 @@ function calc(){
   /* v1.1.4 fix (FIX-2): DLP 被害率は Data 柱の SCF で補正すべき
      旧: eff_toBe_dlpDamageRate = f(networksSCF)
      問題: DLP は Data 柱の事象 (データ分類・DLPポリシー・暗号化)
-     新: Data 柱の SCF を使用。Chubu 例では Data SCF=0.5 のため DLP リスクがより正直に出る */
+     新: Data 柱の SCF を使用。部分導入の例（Data SCF=0.5）では DLP リスクがより正直に出る */
   const dataSCF = (S.maazEffectiveCoverage && S.maazEffectiveCoverage.byPillar &&
                    S.maazEffectiveCoverage.byPillar["Data"])
                   ? S.maazEffectiveCoverage.byPillar["Data"].scf : 1.0;
@@ -1803,7 +1803,7 @@ function calc(){
    (1−0.20)/(1−0.31)）＋運用余裕。どの導出法でもこれを超える値には到達しない。
    超過値は黙って通さずクランプ＋警告フラグを返す（calc_test INV-T6）。
    出典は {evidenceIds, display} 構造（DC-2: MAAZ ATLAS 採点ルーブリックの証拠集合と
-   非交差であることを機械照合できる形）。証跡IDは Keel_threatClimate_2026_Analysis.md
+   非交差であることを機械照合できる形）。証跡IDは内部の脅威環境分析（本リポジトリ非同梱）の
    PART1 の E1〜E19 を正とする。 */
 const CLIMATE_CAP = { floor: 1.67, slope: 1.17 };
 const CLIMATE_CAP_NOTE = 'キャップの由来: slope 1.17 = 証跡導出上限 1.159（DBIR 2026 のシェア移動の閉形式 (1−0.20)/(1−0.31)）＋運用余裕。floor 1.67 は床側の妥当上限で、現時点の適格時系列では到達しません。';
