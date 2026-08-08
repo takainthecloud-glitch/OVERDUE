@@ -1914,7 +1914,7 @@ function applyClimatePreset(key, opts){
 /* 値を [0,1] にクランプ。数値でなければ null（KPI未計上）。 */
 function clamp01(v){ const n = +v; return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null; }
 
-/* ── 設計判断（lighthouse QA M-1 反映・2026-07-15）───────────────────────────
+/* ── 設計判断（QA レビュー M-1 反映・2026-07-15）───────────────────────────
    金額残高の唯一の駆動は ZTMM成熟度遷移（effRisk）＝ ztdBalance = ztdAsIs − effRisk。
    アクセス状態機械（UNKNOWN/VISIBLE/ENFORCED の件数）は「KPI層・優先順位付け・乖離アラート」
    専用であり、残高を1円も動かさない（顧客自己申告の件数が金額を動かすと INV-D4 恒等式・
@@ -2068,7 +2068,7 @@ function buildZTDWaterfallSVG(R){
    両端は現在の STATE から実走して求める。既定 STATE での実測（2026-07-27）は
    att=1.00 で +1.39%、att=0.155 で +8.21%（Forg未連携・摩擦0）／+8.71%（Forg連携時・
    forgS/L=0.70, forgC/Lp=0.30）＝ 同一係数変更でも 5.9〜6.2 倍の幅。
-   キール原典の +8.63% は att=0.155・摩擦ありの値（Forg設定差の範囲内で整合）。 */
+   内部分析の原典値 +8.63% は att=0.155・摩擦ありの値（Forg設定差の範囲内で整合）。 */
 const CLIMATE_SENS_ATT = [1.00, 0.155];
 function ztdClimateSensitivity(){
   const KEYS = ['climateFloor','climateSlope','climatePreset','toBe_vulnCoeff','toBe_dlpVulnCoeff','forgLoaded'];
