@@ -95,7 +95,7 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 - アプリケーション: **v1.9.0**（HTML 内の `const APP_VER` が唯一の版数の出所）
 - 計算エンジン: 同系上位エンジン v4.4.1 のフォーク（`const ENGINE_VER = 'v4.4.1 engine (fork · SCF二重化差分あり)'`）。恒等式・定数・出典は同一です。v1.8.0 で MAAZ の SCF 二重化に対応したため、**AS-IS / TO-BE 別スコープの SCF を含む新形式の MAAZ データを取り込んだ場合のみ、TO-BE 側の残高が上流エンジン v4.4.1 と意図的に乖離します**（TO-BE スコープ補正の反映）。旧形式の入力では従来どおり同一の残高を返します
-- 保存 JSON の識別子: `format: "overdue-v1"` / `engine: "ztd-v4.4.1-fork"`。読み込み側は旧識別子（`endeavor-*` 形式、および旧キーの命名（ベンダー名を含む旧識別子））も受理する後方互換を持ちます
+- 保存 JSON の識別子: `format: "overdue-v1"` / `engine: "ztd-v4.4.1-fork"`。読み込み側は旧識別子（`endeavor-*` 形式、およびベンダー名を含む旧キー名）も受理する後方互換を持ちます
 - 設計システム: Ztelier Edition — Ztelier UI Kit v1.0
 
 エクスポートする JSON のスキーマ版数はアプリ版数とは別軸で管理されています。
