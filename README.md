@@ -1,6 +1,6 @@
 # OVERDUE — Zero Trust Debt Ledger
 
-**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. Drivers a team admits it cannot yet count are disclosed as **off-balance** items rather than silently treated as zero, and post-quantum exposure is reported as two non-monetary lenses — harvest-now-decrypt-later time margin (Mosca's X+Y>Z) and the share of encrypted egress that goes uninspected. It ships a printable dunning notice, a full provenance chapter listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely in the browser — no data leaves the machine (fonts are loaded from Google Fonts). The UI is in Japanese.
+**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. Drivers a team admits it cannot yet count are disclosed as **off-balance** items rather than silently treated as zero, and post-quantum exposure is reported as two non-monetary lenses — harvest-now-decrypt-later time margin (Mosca's X+Y>Z) and the share of encrypted egress that goes uninspected. It ships a printable dunning notice, a full Evidence Center (provenance) listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely in the browser — no data leaves the machine (fonts are loaded from Google Fonts). The UI is in Japanese.
 
 ---
 
@@ -27,16 +27,25 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 
 侵害確率は `baseRisk × climateFloor + riskMax × climateSlope × 脆弱性係数` で表され、脆弱性係数は CISA ZTMM の成熟度と MITRE ATT&CK / ATLAS のカバレッジから逆算されます（担当者の主観では決めない）。baseRisk 項が構造的に残るため、**「導入すれば安全」という約束はこのツールでは書けません**。
 
-### 6 つの章
+### 画面構成（v4.0.0 — 問い駆動の3区画）
 
-| 章 | 内容 |
+v3.x までの章立て（00〜05）は廃止し、左サイドナビから**経営の問い 3 つ**を切り替える構成に再編しました。入力・根拠開示・印刷文書はそれぞれ専用のドロワー / シート / オーバーレイに集約しています。数値・恒等式・按分ロジックは章立て時代と同一で、置き場所だけを変えています。
+
+| 区画 | 問い | 内容 |
+|---|---|---|
+| **① 残高** | いま残っている暗黙的信頼の残高はいくらか。 | 答えを1行で示したうえで主数値（通帳型の未納残高）を提示し、3カラム＋2段目（**按分表**・**記帳カバレッジ**）で内訳を開く |
+| **② 次四半期の上限** | 次の四半期で、どれだけ返済できるか。 | 返済可能残高を主数値に、3カラム＋2段目（**24か月の着手順序**の目安・**TTE カーブ**）で優先順位を示す |
+| **③ 摩擦** | なぜ、返せるのに止まっているのか。 | STALLED を主数値に、3カラム＋2段目（MAAZ **柱テーブル**・**TO-BE 残存の3分解**・**組織摩擦 F の感度**）で停滞要因を開く。MAAZ 未連携時の2段目は説明カードに切り替わる |
+
+区画をまたいで使う機能はヘッダ右の3ボタンに集約:
+
+| ボタン | 内容 |
 |---|---|
-| **00 Balance · 残高照会** | 通帳型の未納残高、勘定元帳（借方 / 貸方 / 残高）、STALLED の指摘。v1.10.0 でダッシュボード・ファースト（KPI をスクロール0位置に、ウォーターフォールを章冒頭へ前倒しした構成）に再配置し、前回帳簿との差分比較（読み込みは比較専用・現在の帳簿は変更しない）を追加 |
-| **01 Ledger · 内訳台帳** | 負債の 4 分類 — 未検証の東西通信経路（UNKNOWN / VISIBLE / ENFORCED の状態機械）、期限なき例外アクセス、所有者不明資産への広域権限、根拠未記録の継続権限。さらに新規借入勘定（クラウド・SaaS 拡張、AI エージェント、M&A・拠点追加、PQC 未棚卸し）を件数で記帳し、各ドライバーの取得方法を **実測 / 概算 / 棚卸不能** で自己申告。「棚卸不能」はゼロと区別して**簿外債務**として開示。数え方が分からない欄には回収先マップ（どの台帳・どのツールから、どれくらいの工数で数えるか）を併記。v1.10.0 で各分類に典型的悪用手口（MITRE ATT&CK・当社解釈）タグと担当部門/オーナー欄（自由記述・金額計算には非配線）、エージングの「滞留日数 × 按分値」2 軸表示を追加 |
-| **02 Grace · 猶予時間** | 元本は急に膨らまない。減っているのは猶予のほう — 悪用までの時間（TTE）の推移と、パッチ適用中央値・KEV 修復率といった防御側の指標を対比。**02.4 Quantum Grace** では PQC を件数ではなく 2 レンズ（HNDL = Mosca の X+Y>Z による時間の余白／検査不能な暗号化 egress の比率）で開示 |
-| **03 Notice · 督促状** | 経営層に渡せる督促状を別ウィンドウに発行し、印刷 / PDF 保存 |
-| **04 Intake · 計上・入力** | MAAZ の JSON（成熟度 → 脆弱性係数）、Forg の JSON（組織摩擦）、ヒアリングシート（.xlsx）を取り込んで自社データで再計算。台帳自体の JSON 保存 / 読み込み、架空モデルケースの読み込み。v1.10.0 で返済原資（投資見積もり 5 本）と負債 4 分類の担当部門/オーナーの入力欄を追加（いずれも参考表示・自由記述であり残高計算には配線されない） |
-| **05 Provenance · 根拠開示** | 恒等式の検算、全定数とその出典（基準日つき）、脅威環境係数のプリセットと上限キャップ、不変条件の一覧、「未検証の暗黙の信頼」を 4 つの勘定に分担する対応表、系譜と免責。v1.10.0 で主要前提の感度表（±50%）、組織摩擦 F の感度表、入力元帳（各入力値の出所を機械判定する監査トレース）、ガバナンスフレーム対照表（NIST CSF 2.0 / CISA ZTMM への当社解釈・公式マッピングではない）を追加 |
+| **記帳**（Book Entry ドロワー） | MAAZ / Forg の JSON、ヒアリングシート（.xlsx）の取り込み、保存 JSON の読み書き、返済原資・負債4分類の担当部門欄など、自社データの入力・取り込み一式（旧 04 計上・入力） |
+| **根拠センター**（Evidence Center シート・4タブ） | **検算**（恒等式・定数・不変条件・感度・出所元帳）／**台帳**（4分類の内訳・柱の連動・新規借入）／**猶予**（TTE カーブ・防御側テレメトリ・PQC）／**残高**（ウォーターフォール・所在×要因・勘定元帳）。旧 05 根拠開示の中身をタブ化したもの |
+| **文書**（Documents オーバーレイ） | 督促状・経営報告書（CFO 向け）を切り替えて別ウィンドウに発行し、印刷 / PDF 保存（旧 03 督促状） |
+
+ARIA tabs・フォーカストラップ・`inert` によるキーボード操作に対応しています。直前に開いていた区画とカラーテーマはブラウザの `localStorage` に保存され、次回起動時に復元されます（値は端末内のみに保存され、外部には送信されません）。
 
 ### 不変条件 — このツールが構造的にできないこと
 
@@ -48,12 +57,12 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 - **INV-D7** 滞留日数（エージング）は残高を変えない — **利息は採用しない**
 - **INV-N1** 新規借入ドライバーは物量（件数 / 期）のみを記帳する。金額が増える唯一の経路は次回棚卸しでの再計上（実測）であり、将来外挿による積み増しはしない
 - **INV-N2** 「棚卸不能」と申告されたドライバーはゼロと区別し、簿外債務として開示する。金額化はしない（スコープ外と判明している分は MAAZ の SCF 経由で計上額側に反映済みのため、簿外でも金額化すると二重計上になる）。簿外がある間、残高と新規借入合計は**下限値**として表示される
-- **INV-N3** PQC リスクは件数で表さない。HNDL は時間、インフラ検査可能性は比率として 02.4 で開示し、金額残高・侵害確率式には一切接続しない
-- **猶予不算入** 「02 猶予時間」の攻撃速度データは残高に一切入らない。脅威環境が金額に触れる唯一の接続点は上限キャップつきの climate 係数のみ
+- **INV-N3** PQC リスクは件数で表さない。HNDL は時間、インフラ検査可能性は比率として根拠センター › 猶予 で開示し、金額残高・侵害確率式には一切接続しない
+- **猶予不算入** 「根拠センター › 猶予」の攻撃速度データは残高に一切入らない。脅威環境が金額に触れる唯一の接続点は上限キャップつきの climate 係数のみ
 
 ### 出典
 
-定数と時系列は公開レポートに基づき、章 05 に基準日つきで開示されます（Verizon DBIR、IBM Cost of a Data Breach、Mandiant M-Trends、Palo Alto Networks Unit 42、Sophos State of Ransomware、CISA KEV を集計する Zero Day Clock ほか）。PQC の CRQC 想定年（既定 2029）は断定ではなく保守側の想定で、NIST IR 8547 の 2030 年以降非推奨方針と資源見積もりの縮小を根拠に章 02.4 で開示し、利用者が変更できます。**デフォルト値は架空のモデル企業**であり、初期表示にはその旨の警告が出ます。実データを取り込むまでは自社の帳簿ではありません。
+定数と時系列は公開レポートに基づき、根拠センター › 検算 に基準日つきで開示されます（Verizon DBIR、IBM Cost of a Data Breach、Mandiant M-Trends、Palo Alto Networks Unit 42、Sophos State of Ransomware、CISA KEV を集計する Zero Day Clock ほか）。PQC の CRQC 想定年（既定 2029）は断定ではなく保守側の想定で、NIST IR 8547 の 2030 年以降非推奨方針と資源見積もりの縮小を根拠に根拠センター › 猶予 で開示し、利用者が変更できます。**デフォルト値は架空のモデル企業**であり、初期表示にはその旨の警告が出ます。実データを取り込むまでは自社の帳簿ではありません。
 
 ### データの扱い
 
@@ -61,13 +70,13 @@ OVERDUE（オーバーデュー）は、**やり残したゼロトラストを�
 
 ## 使い方
 
-1. `overdue_v3_2_0.html`（または `index.html`）をダウンロードする
+1. `overdue_v4_0_0.html`（または `index.html`）をダウンロードする
 2. ブラウザでファイルを開く
-3. 「04 計上・入力」から自社データを入力または取り込む（何も取り込まない場合は架空モデル企業の帳簿が表示されます）
+3. ヘッダの「記帳」ボタンから自社データを入力または取り込む（何も取り込まない場合は架空モデル企業の帳簿が表示されます）
 
 ### データの入れ方
 
-「04 計上・入力」には 4 つの導線があります。
+「記帳」ドロワー（ヘッダ右の Book Entry ボタン）には 4 つの導線があります。
 
 | 方法 | 説明 |
 |---|---|
@@ -93,7 +102,7 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 ## バージョン
 
-- アプリケーション: **v3.2.0**（HTML 内の `const APP_VER` が唯一の版数の出所。**v3.0.0 は公開前に v3.0.1 へ統合したため欠番です**）
+- アプリケーション: **v4.0.0**（HTML 内の `const APP_VER` が唯一の版数の出所。**v3.0.0 は公開前に v3.0.1 へ統合したため欠番です**）
 - 計算エンジン: 同系上位エンジン v4.4.1 のフォーク（`const ENGINE_VER = 'v4.4.1 engine (fork · SCF二重化差分あり)'`）。恒等式・定数・出典は同一です。v1.8.0 で MAAZ の SCF 二重化に対応したため、**AS-IS / TO-BE 別スコープの SCF を含む新形式の MAAZ データを取り込んだ場合のみ、TO-BE 側の残高が上流エンジン v4.4.1 と意図的に乖離します**（TO-BE スコープ補正の反映）。旧形式の入力では従来どおり同一の残高を返します
 - 保存 JSON の識別子: `format: "overdue-v1"` / `engine: "ztd-v4.4.1-fork"`。読み込み側は旧識別子（`endeavor-*` 形式、およびベンダー名を含む旧キー名）も受理する後方互換を持ちます
 - 設計システム: Ztelier Design System v2 — Ztelier Console UI v2.0
@@ -104,6 +113,7 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 | 版 | 主な変更 |
 |---|---|
+| **v4.0.0** | **UI を全面再構成（メジャー変更）。** (a) 章立て（00〜05）を廃止し、左サイドナビから切り替える**問い駆動の3区画**に再編 — ① 残高（いま残っている暗黙的信頼の残高はいくらか）／ ② 次四半期の上限（次の四半期で、どれだけ返済できるか）／ ③ 摩擦（なぜ、返せるのに止まっているのか）。各区画は「答え1行・主数値・3カラム＋2段目」の統一フォーマット（2段目: ①按分表・記帳カバレッジ／②24か月の着手順序・TTEカーブ／③柱テーブル・TO-BE残存3分解・摩擦感度）。(b) 入力は「記帳」ドロワーに、根拠開示は「根拠センター」（検算・台帳・猶予・残高の4タブ）に、督促状・経営報告書は「文書」オーバーレイに、それぞれ集約。(c) ARIA tabs・フォーカストラップ・`inert` によるキーボード操作に対応。(d) 印刷文書内の旧章番号参照を新しい区画名へ置換（金額・様式は不変）。(e) 直前に開いていた区画とカラーテーマを `localStorage` に保存し次回起動時に復元。**計算エンジン・恒等式・保存 JSON の契約（`format: "overdue-v1"`、additive）に変更はない**（v3.2.0 以前の保存 JSON はそのまま読み込めます） |
 | **v3.2.0** | **UI リデザインと DEBT MAP の追加。** (a) 各章の要旨を1行＋折りたたみ（fold）に圧縮し、地の文を大幅に削減。(b) 概念構造を伝える図解を9点追加。(c) 配色・意匠面は Refero 制約（Linear/Stripe 系の抑制されたトーン）に従い、hex 値は既存トークンから不変、影（box-shadow）に頼らず罫線（ヘアライン）で階層を作る、角丸は3段階＋pill 形状のみに限定。(d) 00 残高照会に**DEBT MAP（所在×要因）**を追加 — 負債がどの分類（所在）でどの要因により生じているかを1枚の表に集約。(e) **経営報告書（CFO 向け第2文書）の意匠を刷新** — 箱で囲う／太字で強調するという2つの手法をやめ、枠・角丸・背景ウォッシュを持たせず、和文の強調は太字ではなく mono・tabular-nums・インク濃度の違いで表現する方式に統一。(f) **記帳カバレッジ**（00 章）の表示グリッドの整列を是正。(g) ウォーターフォール（WF）のバー内ラベルを DOM オーバーレイで実装し、内側配置／上置きそれぞれの面で AA コントラストを判定。(h) 全文字サイズが実効 11px 下限を満たすことを確認済み。外部スクリプトへの依存は引き続きゼロ（フォント以外の外部ロードなし）。**計算エンジン・恒等式・エクスポート形式（`format` / `engine` キー）に変更はない**（v3.1.0 以前の保存 JSON はそのまま読み込めます） |
 | **v3.1.0** | **ゼロトラスト負債の按分ロジックを更新。** (a) 項目別リスク加重按分を導入 — 未処理率 × MAAZ 柱の未検証度を軸に、東西通信（従来は按分対象外だった項目）も按分対象へ編入。按分は count（件数）モードと weighted（加重）モードの2方式を持ち、母数フィールド `debtExceptionTotalCount` / `debtPrivilegeTotalCount` を新設。母数が欠落している場合、または MAAZ 未連携の場合は自動的に count モードへフォールバックする（過大な加重按分を避ける安全側の設計）。仕様変化: 架空モデルケースは MAAZ 連携を解除した（デフォルト表示が実在ツールの連携状態を装わないようにするため）。count モードの残高表示は v3.0.1 比で 0.01億円差が生じるが、これは LRM（最大剰余法）整合の意図的な是正であり、生値（内部計算の元数値）自体は不変。(b) **Trust Linkage** チャプターを追加 — MAAZ の柱テーブルを取り込み、TO-BE 側の残存を3分解（返済可能残高 / STALLED / 不可避床）で表示し、AS-IS スコープ補正分を明示。(c) **CFO 経営報告書**を Chapter 03 の第2文書として追加（A4 2ページ、印刷/PDF発行に対応）。(d) 返済 KPI を3タイル構成で追加。(e) 新規不変条件 INV-D11〜D13・D15〜D19 を追加（D14 は D13 へ内容を統合したため欠番。番号は再利用しない）。(f) 入力層に「理想値 ≤ 実効値」の不変条件を4経路から5経路へ拡張。(g) 保存 JSON の契約 `overdue-v1` は additive（`ztdAllocMode` ほかの新フィールドは追加のみ）を維持しており、旧版の保存 JSON はそのまま読み込める。**計算エンジン本体の恒等式に変更はない**（残高表示の 0.01億差は表示層の整合是正であり、生値には影響しない） |
 | **v3.0.1** | **UI を Ztelier Console UI v2.0 シェルへ刷新。** 264px 固定サイドナビ＋ヒーロー帯を導入した新しい画面構成に変更。配色トークンを正典 Ztelier Design System v2（Future Blue / Cyber Black）に統一し、新たに3色目のテーマ **Frontier Beige（beige）** を追加（paper → indigo → beige の順に切り替え）。表示のみの刷新であり、**計算エンジン・恒等式・エクスポート形式（`format` / `engine` キー）に変更はない**（v2.0.1 以前の保存 JSON はそのまま読み込めます） |
