@@ -1,6 +1,6 @@
 # OVERDUE — Zero Trust Debt Ledger
 
-**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. Drivers a team admits it cannot yet count are disclosed as **off-balance** items rather than silently treated as zero, and post-quantum exposure is reported as two non-monetary lenses — harvest-now-decrypt-later time margin (Mosca's X+Y>Z) and the share of encrypted egress that goes uninspected. It ships a printable dunning notice, a full Evidence Center (provenance) listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely in the browser — no data leaves the machine (fonts are loaded from Google Fonts). The UI is in Japanese.
+**English summary:** OVERDUE is a single-file HTML tool that reframes unfinished zero-trust work as **debt on a balance sheet**. Instead of presenting security gaps as a risk score, it books the AS-IS annual expected loss as a liability, credits what implementation has actually repaid, and reports the outstanding balance — split into what you *can* repay, what you *could* repay but organizational friction has stalled, and an irreducible floor that no implementation removes. Every number traces back to two accounting identities, and the tool is deliberately built so that counting things (visibility, aging, threat-speed data) can never inflate the balance. Drivers a team admits it cannot yet count are disclosed as **off-balance** items rather than silently treated as zero, and post-quantum exposure is reported as two non-monetary lenses — harvest-now-decrypt-later time margin (Mosca's X+Y>Z) and the share of encrypted egress that goes uninspected. Since v4.1.0 it also keeps an **exposure account** — a count-only inventory of what attackers see first (internet-facing assets, unpatched CISA KEV vulnerabilities against a remediation deadline, non-human identities and AD attack paths, undocumented third-party connections) that flags what needs chasing without ever touching the balance. It ships a printable dunning notice, a full Evidence Center (provenance) listing every constant and its source, and imports from the companion Forg and MAAZ tools. Runs entirely in the browser — no data leaves the machine (fonts are loaded from Google Fonts). The UI is in Japanese.
 
 ---
 
@@ -43,7 +43,7 @@ v3.x までの章立て（00〜05）は廃止し、左サイドナビから**経
 |---|---|
 | **記帳**（Book Entry ドロワー） | MAAZ / Forg の JSON、ヒアリングシート（.xlsx）の取り込み、保存 JSON の読み書き、返済原資・負債4分類の担当部門欄など、自社データの入力・取り込み一式（旧 04 計上・入力） |
 | **文書**（Documents オーバーレイ） | 督促状・経営報告書（CFO 向け）を切り替えて別ウィンドウに発行し、印刷 / PDF 保存（旧 03 督促状） |
-| **根拠センター**（Evidence Center シート・4タブ） | **検算**（恒等式・定数・不変条件・感度・出所元帳）／**台帳**（4分類の内訳・柱の連動・新規借入・委託先勘定）／**猶予**（TTE カーブ・防御側テレメトリ・PQC）／**残高**（ウォーターフォール・所在×要因・勘定元帳）。旧 05 根拠開示の中身をタブ化したもの |
+| **根拠センター**（Evidence Center シート・4タブ） | **検算**（恒等式・定数・不変条件・感度・出所元帳）／**台帳**（4分類の内訳・柱の連動・新規借入・**露出勘定**・委託先勘定）／**猶予**（TTE カーブ・防御側テレメトリ・PQC）／**残高**（ウォーターフォール・所在×要因・勘定元帳）。旧 05 根拠開示の中身をタブ化したもの |
 
 ARIA tabs・フォーカストラップ・`inert` によるキーボード操作に対応しています。直前に開いていた区画とカラーテーマはブラウザの `localStorage` に保存され、次回起動時に復元されます（値は端末内のみに保存され、外部には送信されません）。
 
@@ -58,7 +58,26 @@ ARIA tabs・フォーカストラップ・`inert` によるキーボード操作
 - **INV-N1** 新規借入ドライバーは物量（件数 / 期）のみを記帳する。金額が増える唯一の経路は次回棚卸しでの再計上（実測）であり、将来外挿による積み増しはしない
 - **INV-N2** 「棚卸不能」と申告されたドライバーはゼロと区別し、簿外債務として開示する。金額化はしない（スコープ外と判明している分は MAAZ の SCF 経由で計上額側に反映済みのため、簿外でも金額化すると二重計上になる）。簿外がある間、残高と新規借入合計は**下限値**として表示される
 - **INV-N3** PQC リスクは件数で表さない。HNDL は時間、インフラ検査可能性は比率として根拠センター › 猶予 で開示し、金額残高・侵害確率式には一切接続しない
+- **INV-X1** 露出勘定（E1〜E4）は物量・期限・申告状態のみを記帳し、金額残高・侵害確率式・按分の重みのいずれにも接続しない。KEV 修正期限の超過は返済の緊急度であって元本の増加ではない。「棚卸不能」は INV-N2 と同じく簿外として開示する
 - **猶予不算入** 「根拠センター › 猶予」の攻撃速度データは残高に一切入らない。脅威環境が金額に触れる唯一の接続点は上限キャップつきの climate 係数のみ
+
+### 露出勘定 — 攻撃者から先に見える負債（v4.1.0）
+
+4分類が数えるのは社内に居座る暗黙的信頼です。攻撃の自動化が最初に到達するのは、その手前の**外から見える面**です。2026年8〜9月には国内でランサムウェア・不正アクセスの公表が相次ぎました。警察庁の令和8年上半期統計では、侵入経路が判明した事案の 75% が VPN 機器・リモートデスクトップです。同時期の一次レポート（Google GTIG 2026-09-08、Anthropic 2026-09）は、露出資産の探索・シークレットの収集・侵入後の権限昇格が AI で自動化され、時間単位で完了していると報告しています。露出勘定は、自社のセルフチェック結果を次の4行で棚卸しします。
+
+| 行 | 記帳する物量 | 要督促（赤） | 要確認（黄） |
+|---|---|---|---|
+| **E1 インターネットに露出した資産** | 公開資産数 | 資産台帳に載っていない公開資産 | リモートアクセス機器・管理画面（VPN・RDP・管理UI） |
+| **E2 悪用が確認済みの脆弱性（KEV）** | 公開資産上の未修正 KEV | 修正期限の超過（既定3日・変更可） | 期限内の未修正 |
+| **E3 人以外のID と AD 攻撃経路** | 非人間ID（APIキー・トークン・サービスアカウント） | 露出検知済みで未失効のシークレット／Tier0 到達経路 | 所有者不明・ローテーション期限超過 |
+| **E4 サプライチェーンとの接続** | 委託先との接続（保守回線・委託先VPN・サイト間接続） | 責任者・用途・期限のいずれかが未記録 | 高権限の第三者 SaaS 連携（OAuth） |
+
+- 各行に実測／概算／**棚卸不能**の申告があります。棚卸不能の行は件数を判定に使わず、簿外として開示します
+- 根拠センター › 台帳 で入力し、判定表・結論1行・整合チェック（「うち」が総数を超える、最古日数が期限を超えるのに超過0件、など）を表示します。整合チェックは値を書き換えません
+- 区画①の右カラム・ヘッダチップ（KEV 期限超過・露出 簿外）・督促状・経営報告書にも反映されます
+- 人の常時特権は ④根拠未記録の継続権限、委託先の統制状態は委託先勘定で計上済みのため、E3・E4 はそれと重ならない切り口（人以外のID／接続の文書化）に限っています
+- 回収先マップ（露出勘定版）は、製品名ではなく技術カテゴリ（EASM・KEV 突合・EPSS・AD 攻撃経路分析・シークレットスキャン・NHI 管理・TPRM・SSPM・SCS 評価制度）で、一次ソースと最初の一歩を示します
+- KEV 修正期限の既定値3日は、公的基準（CISA BOD 22-01 の原則2週間）より保守側に置いた想定です。断定ではないため利用者が変更できます
 
 ### 出典
 
@@ -70,7 +89,7 @@ ARIA tabs・フォーカストラップ・`inert` によるキーボード操作
 
 ## 使い方
 
-1. `overdue_v4_0_1.html`（または `index.html`）をダウンロードする
+1. `overdue_v4_1_0.html`（または `index.html`）をダウンロードする
 2. ブラウザでファイルを開く
 3. 左サイドナビ下部の「記帳」ボタンから自社データを入力または取り込む（何も取り込まない場合は架空モデル企業の帳簿が表示されます）
 
@@ -102,7 +121,7 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 ## バージョン
 
-- アプリケーション: **v4.0.1**（HTML 内の `const APP_VER` が唯一の版数の出所。**v3.0.0 は公開前に v3.0.1 へ統合したため欠番です**）
+- アプリケーション: **v4.1.0**（HTML 内の `const APP_VER` が唯一の版数の出所。**v3.0.0 は公開前に v3.0.1 へ統合したため欠番です**）
 - 計算エンジン: 同系上位エンジン v4.4.1 のフォーク（`const ENGINE_VER = 'v4.4.1 engine (fork · SCF二重化差分あり)'`）。恒等式・定数・出典は同一です。v1.8.0 で MAAZ の SCF 二重化に対応したため、**AS-IS / TO-BE 別スコープの SCF を含む新形式の MAAZ データを取り込んだ場合のみ、TO-BE 側の残高が上流エンジン v4.4.1 と意図的に乖離します**（TO-BE スコープ補正の反映）。旧形式の入力では従来どおり同一の残高を返します
 - 保存 JSON の識別子: `format: "overdue-v1"` / `engine: "ztd-v4.4.1-fork"`。読み込み側は旧識別子（`endeavor-*` 形式、およびベンダー名を含む旧キー名）も受理する後方互換を持ちます
 - 設計システム: Ztelier Design System v2 — Ztelier Console UI v2.0
@@ -113,6 +132,7 @@ Chrome / Edge / Firefox / Safari の最新版。JavaScript を有効にしてく
 
 | 版 | 主な変更 |
 |---|---|
+| **v4.1.0** | **露出勘定（Exposure Account）を追加 — 攻撃者から先に見える負債の棚卸し。** 2026年8〜9月の国内事案と一次資料（警察庁 令和8年上半期統計、Google GTIG AI Threat Tracker、Anthropic Threat Intelligence Report）を踏まえ、(a) 根拠センター › 台帳 に E1 公開資産／E2 悪用確認済みの脆弱性（KEV・修正期限つき）／E3 人以外のID と AD 攻撃経路／E4 サプライチェーン接続 の4行を新設。各行に実測／概算／棚卸不能の申告と、要督促・要確認の判定を付けた。(b) 区画①の右カラム、ヘッダチップ（KEV 期限超過・露出 簿外）、督促状（猶予切れ・簿外の段落）、経営報告書（露出勘定の表）に反映。(c) 回収先マップ（露出勘定版）と、根拠の基準日つき一覧を追加。(d) 不変条件 **INV-X1** を新設 — 露出勘定は物量・期限・申告状態のみで、金額残高・侵害確率式・按分には接続しない。架空モデルケースに露出勘定の架空値を追加した（E4 は「棚卸不能」の見え方を示す）。**残高・按分・侵害確率の計算結果は v4.0.1 と同一**（架空モデルケースで 42.00億円のまま。露出勘定の全件数を極端な値にしても残高が動かないことを確認）。保存 JSON の契約 `overdue-v1` は additive（`expo*` キーの追加のみ）で、旧版の保存 JSON はそのまま読み込めます。ヒアリングシート（.xlsx）の取込対象には、露出勘定はまだ含まれていません |
 | **v4.0.1** | **保存した帳簿の読み戻しで、SCF 補正済みフラグが落ちる不具合を修正。** 帳簿の JSON を保存して読み込み直すと、MAAZ の AS-IS スコープ補正（SCF）が済んでいることを示すフラグ `vulnCoeff_is_scf_corrected` が失われ、Trust Linkage の表示が「補正なし（旧 MAAZ 形式）」に変わっていました。(a) 状態の初期値にこのフラグ（`false`）を追加。(b) `importLedgerJSON` では値が `true` のときだけ `true` とし、キー欠落（旧帳簿）や真偽値以外は `false` に倒す。**金額の計算結果は変わりません。** 書き出す JSON にはこのキーが常に含まれます（`overdue-v1` への追加のみで、既存のキーは変わりません）。**注意:** v4.0.0 で一度保存・読み込みを往復した帳簿は、すでにこのフラグを失っています。v4.0.1 で開いても「補正なし」のままなので、補正済みの表示に戻すには MAAZ の JSON を取り込み直してください |
 | **v4.0.0** | **UI を全面再構成（メジャー変更）。** (a) 章立て（00〜05）を廃止し、左サイドナビから切り替える**問い駆動の3区画**に再編 — ① 残高（いま残っている暗黙的信頼の残高はいくらか）／ ② 次四半期の上限（次の四半期で、どれだけ返済できるか）／ ③ 摩擦（なぜ、返せるのに止まっているのか）。各区画は「答え1行・主数値・3カラム＋2段目」の統一フォーマット（2段目: ①按分表・MAAZ連携時は記帳カバレッジも／②24か月の着手順序・TTEカーブ／③柱テーブル・TO-BE残存3分解・摩擦感度）。(b) 入力は「記帳」ドロワーに、根拠開示は「根拠センター」（検算・台帳・猶予・残高の4タブ）に、督促状・経営報告書は「文書」オーバーレイに、それぞれ集約。(c) ARIA tabs・フォーカストラップ・`inert` によるキーボード操作に対応。(d) 印刷文書内の旧章番号参照を新しい区画名へ置換（金額・様式は不変）。(e) 直前に開いていた区画とカラーテーマを `localStorage` に保存し次回起動時に復元。**計算エンジン・恒等式・保存 JSON の契約（`format: "overdue-v1"`、additive）に変更はない**（v3.2.0 以前の保存 JSON はそのまま読み込めます） |
 | **v3.2.0** | **UI リデザインと DEBT MAP の追加。** (a) 各章の要旨を1行＋折りたたみ（fold）に圧縮し、地の文を大幅に削減。(b) 概念構造を伝える図解を9点追加。(c) 配色・意匠面は Refero 制約（Linear/Stripe 系の抑制されたトーン）に従い、hex 値は既存トークンから不変、影（box-shadow）に頼らず罫線（ヘアライン）で階層を作る、角丸は3段階＋pill 形状のみに限定。(d) 00 残高照会に**DEBT MAP（所在×要因）**を追加 — 負債がどの分類（所在）でどの要因により生じているかを1枚の表に集約。(e) **経営報告書（CFO 向け第2文書）の意匠を刷新** — 箱で囲う／太字で強調するという2つの手法をやめ、枠・角丸・背景ウォッシュを持たせず、和文の強調は太字ではなく mono・tabular-nums・インク濃度の違いで表現する方式に統一。(f) **記帳カバレッジ**（00 章）の表示グリッドの整列を是正。(g) ウォーターフォール（WF）のバー内ラベルを DOM オーバーレイで実装し、内側配置／上置きそれぞれの面で AA コントラストを判定。(h) 全文字サイズが実効 11px 下限を満たすことを確認済み。外部スクリプトへの依存は引き続きゼロ（フォント以外の外部ロードなし）。**計算エンジン・恒等式・エクスポート形式（`format` / `engine` キー）に変更はない**（v3.1.0 以前の保存 JSON はそのまま読み込めます） |

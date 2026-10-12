@@ -4431,7 +4431,7 @@ function importHearingSheet(btn){
      v1.8.0 で calc() の SCF 参照先と取込系に MAAZ SCF二重化対応の差分あり）
    UI: 会計メタファー（残高照会・台帳・猶予・督促状）
    ============================================================ */
-const APP_VER = 'v4.0.1';
+const APP_VER = 'v4.1.0';
 /* MAAZ SCF二重化（AS-IS／TO-BE スコープ分離）に対応した版。APP_VER とは連動しない履歴値。
    ★版数リテラルを本文・JS文字列リテラルに直書きしないこと。ビルド時の機械置換はコメント外の
    旧 APP_VER トークンを機械置換するため、直書きすると「いつ入った機能か」がバンプの
@@ -4490,6 +4490,47 @@ Object.assign(STATE, {
                              HNDLは遅い想定の誤りを事後に取り返せない（非対称）ため既定は早い側。プリセットで変更可。 */
   pqcInspectPct: 0,       /* 検査不能な暗号化egress比率（0-1）。prov未申告の間は未入力扱い */
   pqcInspectProv: '',     /* '' / measured / estimated / unaudited */
+});
+
+/* ============================================================
+   v4.1.0: 露出勘定（Exposure Account）— 攻撃者から先に見える負債
+   ──────────────────────────────────────────────
+   背景: 2026年8〜9月、国内ではランサムウェア・不正アクセスの公表が相次いだ。警察庁の
+   令和8年上半期統計では、侵入経路が判明した事案の 75% が VPN 機器・リモートデスクトップ。
+   同時期の一次レポート（Google GTIG 2026-09-08 / Anthropic 2026-09）は、攻撃側が
+   露出資産の探索・認証情報の収集・侵入後の権限昇格を AI で自動化し、時間単位で完了させて
+   いることを報告している。攻撃者が最初に読むのは、自社の帳簿ではなく外から見える面である。
+   本勘定はその面を4行（E1〜E4）で棚卸しする。
+   規律（INV-X1）: 物量・期限・申告状態のみを記帳し、金額残高・侵害確率式・按分の重みの
+   いずれにも接続しない（INV-D3 の適用）。KEV 修正期限の超過は返済の緊急度であって元本の
+   増加ではない（INV-D7 と同じ扱い）。「棚卸不能」はゼロと区別して簿外として開示する
+   （INV-N2 と同じ扱い）。STATE_DEFAULTS の凍結より前に置くこと（下の注記参照）。
+   ============================================================ */
+Object.assign(STATE, {
+  expoCheckedOn: '',            /* 棚卸の基準時点ラベル 例: 2026-10 */
+  /* E1 インターネットに露出した資産 */
+  expoPublicAssetCount: 0,      /* 外部から観測できる公開資産（IP・FQDN・公開サービス）の数 */
+  expoUnregisteredCount: 0,     /* うち資産台帳に載っていない公開資産（シャドー公開） */
+  expoRemoteAccessCount: 0,     /* うちリモートアクセス機器・管理画面（VPN・RDP・管理UI） */
+  expoSurfaceProv: '',
+  /* E2 悪用が確認済みの脆弱性（CISA KEV 掲載）— 公開資産上の未修正分 */
+  expoKevOpenCount: 0,          /* 公開資産上で未修正の KEV 掲載脆弱性 */
+  expoKevOverdueCount: 0,       /* うち修正期限（expoKevSlaDays）を超過 */
+  expoKevOldestDays: 0,         /* 最古の未修正 KEV の経過日数 */
+  expoKevSlaDays: 3,            /* 修正期限（日）。既定3日＝保守（リスク側）想定。根拠は EXPO_EVIDENCE */
+  expoKevProv: '',
+  /* E3 人以外のID と AD 攻撃経路（人の常時特権は ④ で計上済み — 二重計上しない） */
+  expoNhiCount: 0,              /* 非人間ID（サービスアカウント・APIキー・トークン）の総数 */
+  expoNhiStaleCount: 0,         /* うち所有者不明またはローテーション期限超過 */
+  expoSecretLeakCount: 0,       /* 露出を検知したが未失効のシークレット */
+  expoAdPathCount: 0,           /* Tier0（ドメイン管理者相当）へ到達する攻撃経路の数 */
+  expoIdentityProv: '',
+  /* E4 サプライチェーンとの接続 */
+  expoVendorLinkCount: 0,       /* 委託先・取引先との接続（保守回線・委託先VPN・サイト間接続） */
+  expoVendorLinkUndocCount: 0,  /* うち責任者・用途・期限のいずれかが未記録 */
+  expoOauthHighScopeCount: 0,   /* 高権限の第三者 SaaS 連携（OAuth 同意） */
+  expoScsStatus: '',            /* SCS評価制度（経産省・NCO）の取得・準備状況（自由記述・定性） */
+  expoSupplyProv: '',
 });
 
 /* v1.10.0 (W2-4 / F-9): 入力元帳の「出所」機械判定に使う出荷時デフォルト（モデル企業＝架空値）の
@@ -5036,6 +5077,7 @@ const INV_BADGES = [
   ['INV-N1',  '新規借入は物量のみ。金額残高には入らない'],
   ['INV-N2',  '「棚卸不能」はゼロと区別し簿外として開示する'],
   ['INV-N3',  'PQC は時間と比率で開示し、金額・確率式に接続しない'],
+  ['INV-X1',  '露出勘定は物量と期限のみ。金額・確率・按分に接続しない'],
   ['猶予不算入', 'TTE・攻撃速度は残高に入らない（接続点は climate 係数のみ）'],
   ['NPV不採用', '残高は単年のスナップショット。割引現在価値は採用しない'],
   ['ゼロを約束しない', 'baseRisk 項があるため「入れれば安全」は構造的に言えない'],
@@ -5277,6 +5319,13 @@ function loadDemoCase(){
     pqcDataLabel: '設計図面・製造プロセスデータ',
     pqcShelfYears: 10, pqcMigYears: 4, pqcCrqcYear: 2029,
     pqcInspectPct: 0.35, pqcInspectProv: 'estimated',
+    /* v4.1.0: 露出勘定の架空値。E4 は「棚卸不能」申告の見え方を示すため件数を置かない。 */
+    expoCheckedOn: '2026-10（架空）',
+    expoPublicAssetCount: 310, expoUnregisteredCount: 23, expoRemoteAccessCount: 14, expoSurfaceProv: 'measured',
+    expoKevOpenCount: 9, expoKevOverdueCount: 4, expoKevOldestDays: 38, expoKevSlaDays: 3, expoKevProv: 'measured',
+    expoNhiCount: 1850, expoNhiStaleCount: 640, expoSecretLeakCount: 7, expoAdPathCount: 12, expoIdentityProv: 'estimated',
+    expoVendorLinkCount: 0, expoVendorLinkUndocCount: 0, expoOauthHighScopeCount: 0,
+    expoScsStatus: '★3 準備中（架空）', expoSupplyProv: 'unaudited',
   });
   applyClimatePreset('ai-era-2026-conservative');
   /* v3.1.0 (QA N-1): 他の取込経路と同型に、最後で必ず「理想 ≤ 実効」を保証する。 */
@@ -5797,6 +5846,262 @@ function issuanceLeafHTML(){
 }
 
 /* ============================================================
+   v4.1.0: 露出勘定 — Exposure Account（攻撃者から先に見える負債）
+   ============================================================ */
+/* 4行の定義。判定は「赤＝要督促」「黄＝要確認」の2段だけで、点数化はしない（INV-X1）。 */
+const EXPO_LINES = [
+  { id:'surface',  no:'E1', ic:'scan',  t:'インターネットに露出した資産', en:'External Exposure',
+    prov:'expoSurfaceProv',  total:'expoPublicAssetCount', totalLb:'公開資産',
+    bad:['expoUnregisteredCount'], warn:['expoRemoteAccessCount'] },
+  { id:'kev',      no:'E2', ic:'alert', t:'悪用が確認済みの脆弱性（KEV）', en:'Known Exploited',
+    prov:'expoKevProv',      total:'expoKevOpenCount', totalLb:'未修正 KEV',
+    bad:['expoKevOverdueCount'], warn:['expoKevOpenCount'] },
+  { id:'identity', no:'E3', ic:'key',   t:'人以外のID と AD 攻撃経路', en:'Non-Human Identity',
+    prov:'expoIdentityProv', total:'expoNhiCount', totalLb:'非人間ID',
+    bad:['expoSecretLeakCount','expoAdPathCount'], warn:['expoNhiStaleCount'] },
+  { id:'supply',   no:'E4', ic:'building', t:'サプライチェーンとの接続', en:'Third-Party Links',
+    prov:'expoSupplyProv',   total:'expoVendorLinkCount', totalLb:'委託先接続',
+    bad:['expoVendorLinkUndocCount'], warn:['expoOauthHighScopeCount'] },
+];
+function exposureSummary(){
+  const n = k => Math.max(0, Math.floor(+STATE[k] || 0));
+  const sla = Math.max(0, Math.floor(+STATE.expoKevSlaDays || 0));
+  const lines = EXPO_LINES.map(L => {
+    const prov = STATE[L.prov] || '';
+    const keys = [L.total].concat(L.bad, L.warn);
+    const any = keys.some(k => n(k) > 0);
+    const badN = L.bad.reduce((a, k) => a + n(k), 0);
+    const warnN = L.warn.reduce((a, k) => a + n(k), 0);
+    /* 棚卸不能と申告した行の件数は判定に使わない（数えられないと申告した数字を読むのは矛盾 — INV-N2 と同じ） */
+    const st = prov === 'unaudited' ? 'off'
+      : (!any && !prov) ? 'none'
+      : badN > 0 ? 'bad' : warnN > 0 ? 'warn' : 'ok';
+    return { L, prov, st, total: n(L.total), badN, warnN };
+  });
+  const by = id => lines.find(x => x.L.id === id);
+  const live = id => by(id).st !== 'off';
+  /* 整合チェック: 「うち」が総数を超える、最古日数が期限を超えるのに超過0件、など。
+     値は直さずに注記だけ出す（黙って値を変えない — v3.1.0 QA B-1 と同じ方針）。 */
+  const issues = [];
+  const over = (part, whole, msg) => { if (n(whole) > 0 && n(part) > n(whole)) issues.push(msg); };
+  if (live('surface')){
+    over('expoUnregisteredCount', 'expoPublicAssetCount', 'E1: 台帳未登録が公開資産の総数を超えています');
+    over('expoRemoteAccessCount', 'expoPublicAssetCount', 'E1: リモートアクセス機器が公開資産の総数を超えています');
+  }
+  if (live('kev')){
+    if (n('expoKevOverdueCount') > n('expoKevOpenCount')) issues.push('E2: 期限超過が未修正 KEV の総数を超えています');
+    if (n('expoKevOpenCount') > 0 && n('expoKevOverdueCount') === 0 && n('expoKevOldestDays') > sla)
+      issues.push('E2: 最古の未修正が ' + n('expoKevOldestDays') + '日（期限 ' + sla + '日）なのに、期限超過が 0件です');
+  }
+  if (live('identity')) over('expoNhiStaleCount', 'expoNhiCount', 'E3: 所有者不明・期限超過が非人間IDの総数を超えています');
+  if (live('supply')) over('expoVendorLinkUndocCount', 'expoVendorLinkCount', 'E4: 未記録の接続が委託先接続の総数を超えています');
+  const off = lines.filter(x => x.st === 'off');
+  return {
+    lines, issues, sla,
+    recorded: lines.some(x => x.st !== 'none'),
+    declared: lines.filter(x => !!x.prov).length,
+    offCount: off.length, off: off.map(x => x.L.no + ' ' + x.L.t),
+    badLines: lines.filter(x => x.st === 'bad').length,
+    kevOverdue: live('kev') ? n('expoKevOverdueCount') : 0,
+    kevOpen: live('kev') ? n('expoKevOpenCount') : 0,
+    kevOldest: live('kev') ? n('expoKevOldestDays') : 0,
+    remote: live('surface') ? n('expoRemoteAccessCount') : 0,
+    unregistered: live('surface') ? n('expoUnregisteredCount') : 0,
+    leaks: live('identity') ? n('expoSecretLeakCount') : 0,
+    adPaths: live('identity') ? n('expoAdPathCount') : 0,
+    undocLinks: live('supply') ? n('expoVendorLinkUndocCount') : 0,
+    checkedOn: STATE.expoCheckedOn || '',
+  };
+}
+const EXPO_ST = {
+  bad:  { lb:'要督促',   icn:'alert',  cls:'na',   ink:'var(--danger-ink)' },
+  warn: { lb:'要確認',   icn:'clock',  cls:'mid',  ink:'var(--warn-ink)' },
+  ok:   { lb:'記帳済',   icn:'check',  cls:'ok',   ink:'var(--trust-ink)' },
+  off:  { lb:'棚卸不能', icn:'eyeoff', cls:'na',   ink:'var(--warn-ink)' },
+  none: { lb:'未申告',   icn:'scan',   cls:'none', ink:'var(--ink-3)' },
+};
+/* 根拠（基準日つき）。数値は公表資料の記載どおりで、本ツールでは加工・外挿しない。
+   いずれも残高・確率式には接続しない（猶予不算入・INV-X1）。 */
+const EXPO_EVIDENCE = [
+  { k:'侵入口の偏り', v:'侵入経路が判明した36件中、VPN機器18件・リモートデスクトップ9件（計75%）。ランサムウェア被害報告は半期最多の123件',
+    src:'警察庁「令和8年上半期におけるサイバー空間をめぐる脅威の情勢等について」', d:'2026-09-10', use:'E1 のリモートアクセス機器を独立行にした根拠' },
+  { k:'探索の量', v:'脆弱性探索などの不審アクセスは 1日・1IPアドレスあたり 13,687件（前年同期比 +50.7%）',
+    src:'同上', d:'2026-09-10', use:'E1・E2 を「常時」棚卸しにする根拠' },
+  { k:'侵入後の速度', v:'AIエージェントによる侵入後の活動が6時間未満で完了。攻撃者の C2 で 23,800件超の窃取シークレットが管理されていた',
+    src:'Google Threat Intelligence Group「AI Threat Tracker」', d:'2026-09-08', use:'E2 の既定期限を3日に前倒しした根拠／E3 にシークレットを置いた根拠' },
+  { k:'権限昇格の速度', v:'盗まれた開発者トークン1つから、約3時間でクラウド環境の管理者権限まで到達した事例',
+    src:'Anthropic「Threat Intelligence Report」', d:'2026-09', use:'E3 に人以外のIDを独立行で置いた根拠' },
+  { k:'修正期限の公的基準', v:'KEV 掲載の脆弱性は原則2週間以内に修正（米国連邦機関向け）',
+    src:'CISA Binding Operational Directive 22-01', d:'2021-11-03', use:'E2 期限の上限側の目安（既定3日はこれより保守側）' },
+  { k:'取引先の評価制度', v:'サプライチェーン強化に向けたセキュリティ対策評価制度（★3〜★5）。2026年度下期の本格運用を予定',
+    src:'経済産業省・国家サイバー統括室', d:'2026', use:'E4 の定性欄（SCS評価制度の状況）' },
+];
+/* 回収先マップ（露出勘定版）。AUDIT_MAP と同じく製品名でなく技術カテゴリで書く。 */
+const EXPO_MAP = [
+  { ic:'scan', t:'E1 インターネットに露出した資産', eff:'半日〜1日',
+    src:'自社ドメインの DNS ゾーン・証明書透明性（CT）ログ／ISP 割当 IP レンジ／クラウドの公開 IP・ロードバランサ一覧',
+    chips:['EASM','インターネットスキャンデータ照会','CT ログ監視','CSPM（公開設定）'],
+    act:'自社ドメインと IP レンジを外部のスキャンデータで照会し、資産台帳と突き合わせて「台帳にない公開資産」を件数化' },
+  { ic:'alert', t:'E2 悪用が確認済みの脆弱性（KEV）', eff:'約2時間',
+    src:'CISA KEV カタログ／JVN・JPCERT/CC 注意喚起／公開資産に対する脆弱性スキャン結果',
+    chips:['KEV 突合','EPSS','外部脆弱性スキャン','パッチ・構成管理'],
+    note:'優先順位は CVSS の点数ではなく「悪用が確認されているか」で付ける。KEV 未掲載でも EPSS が高いものは次点として扱う。',
+    act:'E1 の公開資産リストに対するスキャン結果を KEV と突合し、未修正件数・期限超過件数・最古の経過日数を出す' },
+  { ic:'key', t:'E3 人以外のID と AD 攻撃経路', eff:'半日',
+    src:'AD・Entra ID のグループと委任設定／クラウド IAM／ソースコード・CI/CD・コンテナイメージ・配布アプリ',
+    chips:['AD 攻撃経路分析','ITDR','シークレットスキャン','NHI 管理','CIEM'],
+    note:'人の常時特権は ④根拠未記録の継続権限で計上済み。ここは人以外のID（APIキー・トークン・サービスアカウント）と、Tier0 へ到達する経路に限る（二重計上しない）。',
+    act:'Tier0 へ到達する経路の数と、リポジトリ・CI/CD 上で未失効のシークレットを件数化' },
+  { ic:'building', t:'E4 サプライチェーンとの接続', eff:'約半日',
+    src:'保守回線・委託先 VPN・サイト間接続の申請台帳／IdP・SaaS の第三者アプリ同意（OAuth）一覧／委託契約',
+    chips:['TPRM','SSPM（OAuth 連携監査）','ZTNA（委託先アクセス）','SCS 評価制度'],
+    note:'委託先勘定の①②（ZTNA 未移行・期限管理外の特権）は統制の状態、E4 は接続の文書化。切り口が違い、どちらも金額化しない。',
+    act:'委託先との接続を1枚に並べ、責任者・用途・期限のいずれかが欠ける接続を件数化' },
+];
+function exposureMapHTML(){
+  const row = m => '<div class="amap-row">'
+    + '<div class="amap-ic">' + ic(m.ic, 20) + '</div>'
+    + '<div class="amap-body">'
+    +   '<div class="amap-head"><span class="amap-t">' + m.t + '</span><span class="eff-chip">' + ic('clock', 11) + m.eff + '</span></div>'
+    +   '<div class="amap-l"><span class="k">' + ic('db', 12) + '一次ソース</span>' + m.src + '</div>'
+    +   '<div class="amap-l"><span class="k">' + ic('layers', 12) + '技術</span>' + m.chips.map(c => '<span class="amap-chip">' + c + '</span>').join('') + '</div>'
+    +   (m.note ? '<div class="amap-note">' + m.note + '</div>' : '')
+    +   '<div class="amap-l act"><span class="k">' + ic('step', 12) + '最初の一歩</span><strong>' + m.act + '</strong></div>'
+    + '</div></div>';
+  return '<details class="explain reveal" style="margin-top:16px">'
+  + '<summary>' + ic('db', 14) + '回収先マップ — 露出勘定の数字をどこから取るか（' + EXPO_MAP.length + '項目） · Self-check map</summary>'
+  + '<div class="explain-body">'
+  + '<div class="sub1" style="margin:0 0 10px">攻撃者と同じ<strong>外からの視点</strong>で数えます。E1・E2 は常時〜日次、E3・E4 は月次が目安です。数える手段がない行は<strong>「棚卸不能」を申告</strong>してください — 自社が数えられない面は、攻撃者からは見えている可能性があります。</div>'
+  + EXPO_MAP.map(row).join('')
+  + '</div></details>';
+}
+function exposureEvidenceHTML(){
+  return '<details class="explain fold"><summary>なぜこの4行か · 2026年8〜9月の事案と一次資料</summary><div class="explain-body">'
+  + '2026年8〜9月の国内公表事案には、ランサムウェアによる AD サーバー上のデータ持ち出し、委託先経由での取引先情報の漏えい、大規模なアカウントの不正取得が並びました。'
+  + 'いずれも 4分類（社内の暗黙的信頼）より手前の、<strong>外から見える面</strong>が入口です。本勘定はその面を4行で棚卸しします。'
+  + '<table class="ledger-table" style="margin-top:10px"><thead><tr><th>論点</th><th>記載内容</th><th>出典・基準日</th><th>本勘定での使い方</th></tr></thead><tbody>'
+  + EXPO_EVIDENCE.map(e => '<tr><td>' + escS(e.k) + '</td><td style="text-align:left">' + escS(e.v) + '</td>'
+      + '<td style="text-align:left">' + escS(e.src) + '<br><span class="mono" style="color:var(--ink-3)">' + escS(e.d) + '</span></td>'
+      + '<td style="text-align:left">' + escS(e.use) + '</td></tr>').join('')
+  + '</tbody></table>'
+  + '<div style="margin-top:8px">上の数値は脅威環境の説明であり、<strong>残高・侵害確率式には一切入りません</strong>（猶予不算入・INV-X1）。修正期限の既定 3日は、公的基準（CISA BOD 22-01 の原則2週間）より保守側に置いた想定です。断定ではないため、利用者が変更できます。</div>'
+  + '</div></details>';
+}
+function exposureVerdict(x){
+  const offNote = x.offCount > 0
+    ? '<div style="font-family:var(--font-jp);font-size:11px;color:var(--warn-ink);line-height:1.7;margin-top:6px">＋簿外 ' + x.offCount + '行（' + x.off.map(escS).join('・') + '）— 数えられない面は、攻撃者からは見えている可能性があります。</div>'
+    : '';
+  if (!x.recorded){
+    return '<div style="font-family:var(--font-jp);font-size:11px;color:var(--ink-3)">未記帳 — 4行の件数を記帳すると、攻撃者から先に見える負債を判定します。数える手段がない行は「棚卸不能」を申告してください。</div>';
+  }
+  if (x.kevOverdue > 0){
+    return '<div class="callout bad">'
+      + '<div style="font-family:var(--font-jp);font-size:13px;font-weight:500;color:var(--danger-ink)">猶予切れ — 悪用確認済みの脆弱性が、修正期限を過ぎて公開面に残っています</div>'
+      + '<div style="font-family:var(--font-jp);font-size:12px;color:var(--ink);line-height:1.7;margin-top:4px">KEV 掲載の未修正 <strong>' + x.kevOpen + '件</strong> のうち <strong>' + x.kevOverdue + '件</strong> が期限（' + x.sla + '日）超過、最古は <strong>' + x.kevOldest + '日</strong>。修正か、公開面からの切り離しが先です。</div>' + offNote + '</div>';
+  }
+  if (x.badLines > 0){
+    return '<div class="callout bad">'
+      + '<div style="font-family:var(--font-jp);font-size:13px;font-weight:500;color:var(--danger-ink)">要督促 ' + x.badLines + '行 — 攻撃者から先に見える負債があります</div>'
+      + '<div style="font-family:var(--font-jp);font-size:12px;color:var(--ink);line-height:1.7;margin-top:4px">表の「要督促」の行から着手してください。いずれも件数の記帳であり、残高の金額は動きません（INV-X1）。</div>' + offNote + '</div>';
+  }
+  if (x.offCount > 0){
+    return '<div class="callout">'
+      + '<div style="font-family:var(--font-jp);font-size:13px;font-weight:500;color:var(--warn-ink)">簿外あり — 数えられない面は、ゼロではありません</div>'
+      + '<div style="font-family:var(--font-jp);font-size:12px;color:var(--ink);line-height:1.7;margin-top:4px">' + x.off.map(escS).join('・') + ' が「棚卸不能」と申告されています。回収先マップから棚卸しに着手してください。</div></div>';
+  }
+  return '<div class="callout ok">'
+    + '<div style="font-family:var(--font-jp);font-size:13px;font-weight:500;color:var(--trust-ink)">要督促の行はありません</div>'
+    + '<div style="font-family:var(--font-jp);font-size:12px;color:var(--ink);line-height:1.7;margin-top:4px">外から見える面の棚卸しは追いついています。E1・E2 は数日で状況が変わるため、棚卸しの頻度を保てるかが焦点です。</div></div>';
+}
+function exposureTableHTML(x){
+  const n = k => Math.max(0, Math.floor(+STATE[k] || 0));
+  const detail = {
+    surface:  () => '台帳未登録 <b>' + n('expoUnregisteredCount') + '</b> · リモートアクセス機器・管理画面 <b>' + n('expoRemoteAccessCount') + '</b>',
+    kev:      () => '期限超過 <b>' + n('expoKevOverdueCount') + '</b> · 最古 <b>' + n('expoKevOldestDays') + '日</b>（期限 ' + x.sla + '日）',
+    identity: () => '露出シークレット <b>' + n('expoSecretLeakCount') + '</b> · Tier0 到達経路 <b>' + n('expoAdPathCount') + '</b> · 所有者不明／期限超過 <b>' + n('expoNhiStaleCount') + '</b>',
+    supply:   () => '未記録の接続 <b>' + n('expoVendorLinkUndocCount') + '</b> · 高権限 OAuth 連携 <b>' + n('expoOauthHighScopeCount') + '</b>'
+                    + (STATE.expoScsStatus ? '<br><span style="color:var(--ink-3)">SCS評価制度: ' + escS(STATE.expoScsStatus) + '（定性・金額化しない）</span>' : ''),
+  };
+  const provLb = { measured:'実測', estimated:'概算', unaudited:'棚卸不能', '':'未申告' };
+  return '<table class="ledger-table"><thead><tr><th>露出勘定</th><th>総数</th><th>内訳（要督促 · 要確認）</th><th>申告</th><th>判定</th></tr></thead><tbody>'
+    + x.lines.map(r => { const m = EXPO_ST[r.st];
+        return '<tr><td>' + r.L.no + ' ' + escS(r.L.t) + '</td>'
+          + '<td class="num">' + (r.st === 'off' ? '—' : r.total) + '</td>'
+          + '<td style="text-align:left;font-size:11.5px">' + (r.st === 'off' ? '棚卸不能 — 簿外として開示' : detail[r.L.id]()) + '</td>'
+          + '<td>' + (provLb[r.prov] || '未申告') + '</td>'
+          + '<td><span style="display:inline-flex;align-items:center;gap:4px;color:' + m.ink + '">' + ic(m.icn, 12) + m.lb + '</span></td></tr>'; }).join('')
+    + '</tbody></table>';
+}
+function exposureLeafHTML(){
+  const x = exposureSummary();
+  const g = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:6px">';
+  const lineHead = (L) => '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px;font-family:var(--font-jp);font-size:13px;font-weight:500;color:var(--ink)">'
+    + ic(L.ic, 16) + L.no + ' ' + L.t + '<span style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)">' + L.en + '</span></div>';
+  return '<section class="section tight"><div class="container">'
+  + '<div class="sec-marker"><span class="sec-label">Exposure Account <span class="jp">· 露出勘定 — 攻撃者から先に見える負債</span></span></div>'
+  + '<div class="card elevated reveal" style="padding:24px 28px">'
+  + '<div class="daicho-head"><span class="no" style="color:var(--danger-ink)">E</span><span class="ttl">露出勘定（外から見える面の棚卸し）</span><span class="en">EXPOSURE — STOCK ACCOUNT</span></div>'
+  + leadFold('scan', 'warn', '攻撃者は、外から見える面から読みます。',
+      '公開資産・悪用確認済みの脆弱性・人以外のID・委託先接続を件数と期限で棚卸しします — 金額残高には入れません（INV-X1）。',
+      '4分類が数えるのは社内に居座る暗黙的信頼です。攻撃の自動化が最初に到達するのは、その手前の<strong>外から見える面</strong> — 公開された機器、修正されていない既知の脆弱性、放置された APIキー・トークン、文書化されていない委託先接続です。'
+      + 'ここでは自社のセルフチェック結果を4行（E1〜E4）で記帳し、<strong>要督促</strong>の行を示します。件数・期限・申告状態だけを扱い、<strong>金額残高・侵害確率式・按分には一切接続しません</strong>（INV-X1）。',
+      '4分類との関係 · Why a separate account')
+  + '<div style="height:10px"></div>'
+  + g + fldText('棚卸の基準時点', 'expoCheckedOn', {ph:'例: 2026-10'}) + '</div>'
+  + lineHead(EXPO_LINES[0]) + g
+  +   fldNum('公開資産', 'expoPublicAssetCount', {step:1, suffix:'件', hint:'外部から観測できる IP・FQDN・公開サービス'})
+  +   fldNum('うち台帳未登録', 'expoUnregisteredCount', {step:1, suffix:'件', hint:'資産台帳にない公開資産（要督促）'})
+  +   fldNum('うちリモートアクセス機器・管理画面', 'expoRemoteAccessCount', {step:1, suffix:'件', hint:'VPN・RDP・管理UI（侵入口の75% — 警察庁 R8上半期）'})
+  + '</div>' + provSel('expoSurfaceProv')
+  + lineHead(EXPO_LINES[1]) + g
+  +   fldNum('公開資産上の未修正 KEV', 'expoKevOpenCount', {step:1, suffix:'件', hint:'CISA KEV 掲載の脆弱性'})
+  +   fldNum('うち修正期限超過', 'expoKevOverdueCount', {step:1, suffix:'件', hint:'下の修正期限を過ぎたもの（要督促）'})
+  +   fldNum('最古の未修正', 'expoKevOldestDays', {step:1, suffix:'日', hint:'公開から現在までの経過日数'})
+  +   fldNum('修正期限', 'expoKevSlaDays', {step:1, suffix:'日', hint:'既定3日＝保守側。公的基準は原則2週間'})
+  + '</div>' + provSel('expoKevProv')
+  + lineHead(EXPO_LINES[2]) + g
+  +   fldNum('非人間ID', 'expoNhiCount', {step:1, suffix:'件', hint:'サービスアカウント・APIキー・トークン'})
+  +   fldNum('うち所有者不明・期限超過', 'expoNhiStaleCount', {step:1, suffix:'件', hint:'持ち主がいない、またはローテーション期限切れ'})
+  +   fldNum('露出検知・未失効のシークレット', 'expoSecretLeakCount', {step:1, suffix:'件', hint:'リポジトリ・CI/CD・配布物で検知（要督促）'})
+  +   fldNum('Tier0 到達経路', 'expoAdPathCount', {step:1, suffix:'本', hint:'ドメイン管理者相当へ届く攻撃経路（要督促）'})
+  + '</div>' + provSel('expoIdentityProv')
+  + lineHead(EXPO_LINES[3]) + g
+  +   fldNum('委託先との接続', 'expoVendorLinkCount', {step:1, suffix:'本', hint:'保守回線・委託先VPN・サイト間接続'})
+  +   fldNum('うち責任者・用途・期限が未記録', 'expoVendorLinkUndocCount', {step:1, suffix:'本', hint:'1つでも欠ければ計上（要督促）'})
+  +   fldNum('高権限の第三者 SaaS 連携', 'expoOauthHighScopeCount', {step:1, suffix:'件', hint:'全データ読取・管理者権限の OAuth 同意'})
+  +   fldText('SCS評価制度の状況', 'expoScsStatus', {ph:'例: ★3 準備中', hint:'定性のみ・金額化しない'})
+  + '</div>' + provSel('expoSupplyProv')
+  + '<div style="height:16px"></div>'
+  + exposureTableHTML(x)
+  + '<div style="height:12px"></div>'
+  + exposureVerdict(x)
+  + (x.issues.length ? '<div style="font-family:var(--font-jp);font-size:11.5px;color:var(--warn-ink);line-height:1.7;margin-top:8px">' + ic('alert', 12) + ' 整合チェック: ' + x.issues.map(escS).join(' ／ ') + '（値は書き換えていません）</div>' : '')
+  + exposureEvidenceHTML()
+  + '<details class="explain fold"><summary>INV-X1 · 露出勘定が残高を動かさない理由</summary><div class="explain-body">'
+  + 'INV-X1: 本勘定は物量・期限・申告状態のみ。<strong>金額残高・侵害確率式・按分の重みには接続しません</strong>（INV-D3 の適用 — 数えることは返済ではない）。'
+  + '修正期限の超過は返済の<strong>緊急度</strong>であって元本の増加ではありません（INV-D7 と同じ扱い）。「棚卸不能」はゼロと区別し、簿外として開示します（INV-N2 と同じ扱い）。'
+  + '外から見える面の改善が金額に反映される経路は、成熟度（MAAZ → 脆弱性係数）の再評価のみです。</div></details>'
+  + '</div>'
+  + exposureMapHTML()
+  + '</div></section>';
+}
+/* 区画①の右カラム用ミニ（物量のみ・INV-X1） */
+function ckExposureMiniHTML(){
+  const x = exposureSummary();
+  if (!x.recorded){
+    return '<div class="ck-mini"><span class="ic">' + ic('scan', 14) + '</span>'
+      + '<span>露出勘定</span><span class="push"><span class="n">未記帳</span></span></div>';
+  }
+  return '<div class="ck-mini"><span class="ic">' + ic('scan', 14) + '</span>'
+    + '<span>露出勘定' + (x.checkedOn ? ' ' + escS(x.checkedOn) : '') + '</span>'
+    + '<span class="push">'
+    + (x.kevOverdue > 0 ? '<span class="n bad">KEV 期限超過 ' + x.kevOverdue + '件</span> ' : '')
+    + '<span class="n' + (x.badLines > 0 ? ' bad' : ' good') + '">要督促 ' + x.badLines + '行</span>'
+    + (x.offCount > 0 ? ' <span class="n">簿外 ' + x.offCount + '行</span>' : '')
+    + '</span></div>';
+}
+
+/* ============================================================
    01 LEDGER — 内訳台帳（負債4分類 + 委託先勘定 + エージング）
    ============================================================ */
 /* v1.10.0 (W2-6 / C-3): 各分類が攻撃者から見て何に使われるかの静的タグ。
@@ -6254,7 +6559,8 @@ function renderLedger(){
     + repayKpiTilesHTML({})
     /* v3.1.0 (B): 台帳が空でも成熟度・スコープの連動は示す（MAAZ 側は別経路で取り込めるため）。 */
     + body + trustLinkageHTML(R) + '</div></section>'
-    + issuanceLeafHTML();
+    + issuanceLeafHTML()
+    + exposureLeafHTML();
     return;
   }
 
@@ -6496,7 +6802,8 @@ function renderLedger(){
   +   '<tr><td>委託先② 特権アカウント（期限管理外）</td><td class="num">' + vn.privilegedCount + '</td><td class="num">' + pctS(vn.noExpiryRatio) + '</td></tr>'
   +   '<tr><td>委託先③ 外部認証（SOC2/ISO27001）</td><td class="num" colspan="2" style="text-align:left">' + (escS(vn.certStatus) || '（未確認）') + ' <span style="color:var(--ink-3)">— 定性フラグのみ・金額化しない</span></td></tr>'
   +   '</tbody></table></div></div></section>'
-  + issuanceLeafHTML();
+  + issuanceLeafHTML()
+  + exposureLeafHTML();
 }
 
 /* ============================================================
@@ -6839,6 +7146,7 @@ function buildNoticeHTML(R){
   + '</table>'
   + (issuanceSummary().open ? ('<p>また、貴社におかれましては、ご返済の停止中も新規のお借入れを継続されております（' + escS(issuanceSummary().period) + ': クラウド/SaaS拡張・AIエージェント・M&A等 計 ' + issuanceSummary().iss + '件に対し、ご返済 ' + issuanceSummary().rep + '件）。残高は据え置きではなく、<span class="np-em">積み増しの途上</span>にございます。</p>') : '')
   + ((issuanceSummary().offLedger > 0 || issuanceSummary().inspectOff) ? ('<p>なお、' + issuanceSummary().off.concat(issuanceSummary().inspectOff ? ['暗号化通信の検査可能性（PQC）'] : []).join('・') + ' の ' + (issuanceSummary().offLedger + (issuanceSummary().inspectOff ? 1 : 0)) + '項目につきましては「棚卸不能」とのお申し出により<span class="np-em">簿外</span>となっております。本書面に記載の残高および借入件数は下限値である旨、申し添えます。</p>') : '')
+  + noticeExposureHTML()
   /* v1.10.0 (W1-2 / F-3): 「追加のご投資を要さず」は工数ゼロと読めるため「追加のご調達」に是正。
      所要（人的工数・意思決定）の位置づけは np-fine の脚注で明示する。 */
   + '<p>なお、上記STALLED分' + (R.ztd.forgLoaded ? '（' + (R.frictionForg_raw != null ? '組織摩擦係数 F_org=' + R.frictionForg_raw.toFixed(2) + ' に基づく按分率 ' : '組織摩擦の按分率 ') + R.ztdForgCoef.toFixed(2) + '）' : '') + 'につきましては、追加のご調達を要さず、貴社内の意思決定のみでご返済いただける残高でございます。まずは本状を、次回の経営会議の議題に一行お加えくださいますようお願い申し上げます。</p>'
@@ -7062,6 +7370,7 @@ function buildExecReportHTML(R){
   + '<table><thead><tr><th>指標</th><th>方向</th><th>現在値</th></tr></thead><tbody>' + kpiRows + '</tbody></table>'
   + '<h3>STALLED と組織摩擦</h3>' + fr
   + '<h3>新規借入の状態</h3>' + issLine
+  + '<h3>露出勘定（攻撃者から先に見える負債）</h3>' + execExposureHTML()
   + '<h3>返済の着手順序（24ヶ月の目安）</h3>' + phaseTable
 
   + '<div class="ex-fine">'
@@ -7597,6 +7906,7 @@ function renderProvenance(){
   +   '<strong>INV-N1（新規借入）</strong> 新規借入ドライバー（クラウド/SaaS・AIエージェント・M&A・PQC未棚卸し）は物量（件数/期）のみを記帳し、金額残高には一切入らない。これは「利息」ではなく「元本の追加発行」であり、金額が増える唯一の経路は次回棚卸しでの<strong>再計上（実測）</strong>。将来外挿による金額の積み増しはしない。<br>'
   +   '<strong>INV-N2（簿外開示）</strong> 「棚卸不能」と申告されたドライバーはゼロと区別し、<strong>簿外債務</strong>として残高照会・督促状に開示する。金額化はしない。簿外がある間、残高と新規借入合計は<strong>下限値</strong>として表示する。数えられないことの開示自体を、最初の記帳とみなす。簿外を金額化しないのは禁欲ではなく<strong>勘定の分担</strong>である — スコープ外と判明している暗黙の信頼は MAAZ の AS-IS SCF（スコープ網羅係数）経由で計上額側に粗く反映済みであり、簿外側でも金額化すると<strong>二重計上</strong>になる（下表）。残高は「分母に入っている世界」の下限値。<br>'
   +   '<strong>INV-N3（PQC 2レンズ）</strong> PQC リスクは件数で表さない。HNDL は時間（Mosca: X+Y&gt;Z の余白）、インフラ検査可能性は比率（検査不能な暗号化 egress %）として根拠センター › 猶予 · Quantum Grace で開示し、<strong>金額残高・侵害確率式には一切接続しない</strong>。既に収穫されたデータは返済（移行）で遡及回収できないため、これを理由とした金額積み増しもしない。CRQC 想定年は断定せず、既定 2029＝保守（リスク側）想定の根拠（資源見積もり縮小・IR 8547 の2030年以降非推奨・HNDL の非対称性）を明示して利用者が変更できる。移行完了デッドライン（政府目標2035年）を Z の根拠にしない。<br>'
+  +   '<strong>INV-X1（露出勘定）</strong> 露出勘定（E1 公開資産・E2 悪用確認済みの脆弱性・E3 人以外のID と AD 攻撃経路・E4 委託先接続）は物量・期限・申告状態のみを記帳し、<strong>金額残高・侵害確率式・按分の重みのいずれにも接続しない</strong>（INV-D3 の適用）。修正期限の超過は返済の緊急度であって元本の増加ではない（INV-D7 と同じ扱い）。「棚卸不能」はゼロと区別し簿外として開示する（INV-N2 と同じ扱い）。外から見える面の改善が金額に届く経路は、成熟度（MAAZ → 脆弱性係数）の再評価のみ。<br>'
   /* v1.10.0 (W1-5 / F-11): NPV不採用を UI 上の不変条件として明文化（既存の実装コメントの趣旨を開示側へ）。 */
   +   '<strong>割引（NPV）不採用</strong> 残高は単年のスナップショットであり、割引現在価値は採用しない。割引率（WACC）は企業固有値のためツール側で決めず、複数年評価が必要な場合は自社の割引率で外部処理する。<br>'
   +   '<strong>ゼロを約束しない</strong> baseRisk項があるため「ゼロトラストを入れれば安全」という約束は構造的にできない。</div></div>'
@@ -7826,7 +8136,7 @@ const CK_SHEET_TABS = ['provenance', 'ledger', 'grace', 'statement'];
    長い説明は title に持たせ、常時可視の地の文は増やさない。 */
 const CK_TAB_LABEL = {
   provenance: ['検算', '恒等式検算 / 定数 / 不変条件 / 感度 / 出所元帳'],
-  ledger:     ['台帳', '4分類の内訳・柱の連動・新規借入・委託先勘定'],
+  ledger:     ['台帳', '4分類の内訳・柱の連動・新規借入・露出勘定・委託先勘定'],
   grace:      ['猶予', 'TTE カーブ・防御側テレメトリ・PQC'],
   statement:  ['残高', 'ウォーターフォール・所在×要因・勘定元帳'],
 };
@@ -8201,6 +8511,24 @@ function ckResidualHTML(R){
     + '</div>';
 }
 
+/* v4.1.0: 経営報告書の露出勘定。件数と判定のみ（金額は書かない — INV-X1）。 */
+function execExposureHTML(){
+  const x = exposureSummary();
+  if (!x.recorded) return '<p class="ex-a">露出勘定の記帳なし（根拠センター › 台帳 · 露出勘定で、公開資産・KEV・人以外のID・委託先接続を件数で記帳できます）。金額残高には入りません。</p>';
+  const rows = x.lines.map(r => '<tr><td>' + r.L.no + ' ' + escS(r.L.t) + '</td><td class="num">' + (r.st === 'off' ? '—' : r.total) + '</td><td class="num">' + (r.st === 'off' ? '—' : r.badN) + '</td><td>' + EXPO_ST[r.st].lb + '</td></tr>').join('');
+  return '<table><thead><tr><th>行</th><th>総数</th><th>要督促</th><th>判定</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<p class="ex-a">' + (x.kevOverdue > 0 ? '悪用確認済みの脆弱性 <span class="ex-n">' + x.kevOverdue + '</span>件 が修正期限（' + x.sla + '日）を超えて公開面に残っています。' : '修正期限を超えた悪用確認済みの脆弱性はありません。')
+    + (x.offCount > 0 ? '棚卸不能の申告が ' + x.offCount + '行あり、簿外として開示しています。' : '') + '件数の記帳であり、残高の金額には入りません（INV-X1）。</p>';
+}
+/* v4.1.0: 督促状の露出勘定段落。KEV 期限超過と簿外行のみを書く（件数の記載のみ・金額は書かない — INV-X1）。 */
+function noticeExposureHTML(){
+  const x = exposureSummary();
+  let h = '';
+  if (x.kevOverdue > 0) h += '<p>さらに、貴社のインターネット公開資産には、悪用が確認済みの脆弱性（CISA KEV 掲載）が修正期限（' + x.sla + '日）を過ぎて <span class="np-em">' + x.kevOverdue + '件</span> 残置されております（最古 ' + x.kevOldest + '日）。攻撃の自動化が最も早く到達する勘定であり、<span class="np-em">この部分の猶予はすでに切れております。</span></p>';
+  if (x.offCount > 0) h += '<p>また、露出勘定のうち ' + x.off.map(escS).join('・') + ' の ' + x.offCount + '行につきましては「棚卸不能」とのお申し出により<span class="np-em">簿外</span>となっております。貴社が数えられない面も、攻撃者からは見えている可能性がある旨、申し添えます。</p>';
+  return h;
+}
+
 /* ---- ヘッダの状態チップ ---- */
 function ckHeaderChipsHTML(R){
   const chips = [];
@@ -8211,6 +8539,10 @@ function ckHeaderChipsHTML(R){
   if (!STATE.hearingLoaded && !STATE.maazLoaded && !isDemoCase()) chips.push('<span class="ck-hchip case"><span class="dot"></span>実データ 未計上</span>');
   const s = issuanceSummary();
   if (s.offLedger > 0 || s.inspectOff) chips.push('<span class="ck-hchip case">簿外 ' + (s.offLedger + (s.inspectOff ? 1 : 0)) + '項目</span>');
+  /* v4.1.0: 露出勘定 — KEV 期限超過（猶予切れ）と簿外行を独立チップで示す（新規借入の簿外とは合算しない） */
+  const xs = exposureSummary();
+  if (xs.kevOverdue > 0) chips.push('<span class="ck-hchip case">KEV 期限超過 ' + xs.kevOverdue + '件</span>');
+  if (xs.offCount > 0) chips.push('<span class="ck-hchip case">露出 簿外 ' + xs.offCount + '行</span>');
   if (prevLedger) chips.push('<span class="ck-hchip">前回帳簿 比較中</span>');
   return chips.join('');
 }
@@ -8335,6 +8667,8 @@ function renderCockpit(){
     /* 右: 新規借入 → 委託先勘定 → 状態機械 */
       sh('新規借入 · Issuance')
     + ckIssuanceChipHTML()
+    + sh('露出勘定 · Exposure')
+    + ckExposureMiniHTML()
     + sh('委託先勘定 · 別建て')
     + ckVendorMiniHTML(exp)
     + ckStateMiniHTML(exp),
